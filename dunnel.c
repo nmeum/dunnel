@@ -1,4 +1,6 @@
 #include <err.h>
+#include <dtls.h>
+#include <poll.h>
 #include <errno.h>
 #include <stdio.h>
 #include <netdb.h>
@@ -10,11 +12,23 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
+static dtls_context_t *ctx;
+extern dtls_handler_t dtlscb;
+
+#define BSIZ (BUFSIZ > DTLS_MAX_BUF) ? DTLS_MAX_BUF : BUFSIZ
+#define newpollfd(FD) \
+	(struct pollfd){.fd = FD, .events = POLLIN | POLLERR};
+
+struct dctx {
+	int ufd; /* FD of the UDP socket. */
+	int dfd; /* FD of the DTLS socket. */
+};
+
 static void
 usage(char *progname)
 {
 	fprintf(stderr, "Usage: %s "
-		"-a [ADDR] -p [PORT]"
+		"-a [ADDR] -p [PORT] "
 		"DTLS_HOST DTLS_PORT\n", progname);
 	exit(EXIT_FAILURE);
 }
@@ -27,6 +41,7 @@ str2addr(char *host, char *port, struct sockaddr *dest)
 
 	memset(&hint, '\0', sizeof(hint));
 	hint.ai_family = AF_UNSPEC;
+	hint.ai_socktype = SOCK_DGRAM;
 
 	if (getaddrinfo(host, port, &hint, &res)) {
 		return 0;
@@ -78,44 +93,127 @@ usock(char *host, char *port)
 {
 	int fd;
 	socklen_t alen;
-	struct sockaddr addr;
+	struct sockaddr_storage addr;
 
-	if ((fd = sock(host, port, &addr, &alen)) == -1)
+	if ((fd = sock(host, port, (struct sockaddr*)&addr, &alen)) == -1)
 		return -1;
-	if ((bind(fd, &addr, alen)) == -1)
+	if ((bind(fd, (struct sockaddr*)&addr, alen)) == -1)
 		return -1;
 
 	return fd;
 }
 
-/* static int */
-/* dsock(char *host, char *port) */
-/* { */
-/* 	int fd; */
-/* 	session_t sess; */
-/* 	dtls_context_t *ctx; */
+static int
+dsock(char *host, char *port, int ufd, struct dctx *dctx)
+{
+	int fd;
+	session_t sess;
 
-/* 	memset(&sess, '\0', sizeof(sess)); */
-/* 	if ((fd = sock(host, port, &sess.addr.sa, &sess.size)) == -1) */
-/* 		return -1; */
+	memset(&sess, '\0', sizeof(sess));
+	if ((fd = sock(host, port, &sess.addr.sa, &sess.size)) == -1)
+		return -1;
 
-/* 	if (!(ctx = dtls_new_context(&fd))) { */
-/* 		errno = ENOMEM; */
-/* 		return -1; */
-/* 	} */
+	dctx->ufd = ufd;
+	dctx->dfd = fd;
 
-/* 	dtls_set_handler(ctx, &dtlscb); */
-/* 	if (dtls_connect(ctx, &sess) < 0) { */
-/* 		errno = ECONNREFUSED; */
-/* 		return -1; */
-/* 	} */
+	if (!(ctx = dtls_new_context(dctx))) {
+		errno = ENOMEM;
+		return -1;
+	}
 
-/* 	return fd; */
-/* } */
+	dtls_set_handler(ctx, &dtlscb);
+	if (dtls_connect(ctx, &sess) < 0) {
+		errno = ECONNREFUSED;
+		return -1;
+	}
+
+	return fd;
+}
+
+static void
+hdtls(int fd)
+{
+	ssize_t r;
+	session_t sess;
+	unsigned char buf[BSIZ];
+
+	memset(&sess, '\0', sizeof(sess));
+	sess.size = sizeof(sess.addr);
+
+	if ((r = recvfrom(fd, buf, BUFSIZ, MSG_DONTWAIT,
+			&sess.addr.sa, &sess.size)) == -1) {
+		fprintf(stderr, "dtls recvfrom failed: %s\n", strerror(errno));
+		return;
+	}
+
+	/* TODO: what are we supposed to do with the return value? */
+	dtls_handle_message(ctx, &sess, buf, r);
+}
+
+static void
+hudp(int fd)
+{
+	ssize_t r;
+	session_t sess;
+	unsigned char buf[BSIZ];
+
+	memset(&sess, '\0', sizeof(sess));
+	sess.size = sizeof(sess.addr);
+
+	if ((r = recvfrom(fd, buf, BUFSIZ, MSG_DONTWAIT,
+			&sess.addr.sa, &sess.size)) == -1) {
+		fprintf(stderr, "udp recvfrom failed: %s\n", strerror(errno));
+		return;
+	}
+
+	if (dtls_write(ctx, &sess, buf, r) == -1) {
+		fprintf(stderr, "dtls_write failed\n");
+		return;
+	}
+}
+
+void
+ploop(int ufd, int dfd)
+{
+	int fd;
+	size_t i;
+	short ev;
+	nfds_t nfds;
+	struct pollfd fds[2];
+
+	nfds = sizeof(fds) / sizeof(fds[0]);
+
+	fds[0] = newpollfd(ufd);
+	fds[1] = newpollfd(dfd);
+
+	for (;;) {
+		if (poll(fds, nfds, -1) == -1)
+			err(EXIT_FAILURE, "poll failed");
+
+		for (i = 0; i < nfds; i++) {
+			fd = fds[i].fd;
+			ev = fds[i].revents;
+
+			if (ev & POLLERR) {
+				fprintf(stderr, "Received POLLERR on FD %d\n", fd);
+				continue;
+			} else if (!(ev & POLLIN)) {
+				continue;
+			}
+
+			if (fd == dfd) {
+				hdtls(dfd);
+			} else { /* fd == ufd */
+				hudp(ufd);
+			}
+		}
+	}
+}
 
 int
 main(int argc, char **argv)
 {
+	struct dctx ctx;
 	int opt, ufd, dfd;
 	char *uaddr, *uport, *daddr, *dport;
 
@@ -136,10 +234,16 @@ main(int argc, char **argv)
 
 	if (argc <= 2 || optind + 1 >= argc)
 		usage(*argv);
+	dtls_init();
 
 	daddr = argv[optind];
 	dport = argv[optind + 1];
 
 	if ((ufd = usock(uaddr, (!uport) ? dport : uport)) == -1)
-		err(EXIT_FAILURE, "udpsock failed");
+		err(EXIT_FAILURE, "usock failed");
+	if ((dfd = dsock(daddr, dport, ufd, &ctx)) == -1)
+		err(EXIT_FAILURE, "dsock failed");
+
+	ploop(ufd, dfd);
+	return EXIT_SUCCESS;
 }
