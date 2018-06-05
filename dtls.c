@@ -6,10 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-struct dctx {
-	int ufd; /* FD of the UDP socket. */
-	int dfd; /* FD of the DTLS socket. */
-};
+#include "dat.h"
 
 static int
 dwrite(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)

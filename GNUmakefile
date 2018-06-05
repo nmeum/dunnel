@@ -1,5 +1,6 @@
-SOURCES = dunnel.c dtls.c
+SOURCES = dunnel.c dtls.c sock.c
 OBJECTS = $(SOURCES:.c=.o)
+HEADERS = fns.h dat.h
 
 CFLAGS ?= -O0 -g
 CFLAGS += -std=c99 -Wpedantic -Wall -Wextra \
@@ -11,9 +12,9 @@ ifeq "$(findstring clang,$(shell $(CC) --version))" "clang"
 	CFLAGS += -Weverything
 endif
 
-dunnel: dunnel.o dtls.o
+dunnel: $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS)
-$(OBJECTS): tinydtls/libtinydtls.a
+$(OBJECTS): $(HEADERS) tinydtls/libtinydtls.a
 
 tinydtls/Makefile:
 	cd tinydtls && autoconf
