@@ -161,7 +161,7 @@ hdtls(int fd)
 
 	if ((r = recvfrom(fd, buf, BSIZ, MSG_DONTWAIT,
 			&sess.addr.sa, &sess.size)) == -1) {
-		fprintf(stderr, "dtls recvfrom failed: %s\n", strerror(errno));
+		warn("dtls recvfrom failed");
 		return;
 	}
 
@@ -176,12 +176,12 @@ hudp(int fd)
 	unsigned char buf[BSIZ];
 
 	if ((r = recv(fd, buf, BSIZ, MSG_DONTWAIT)) == -1) {
-		fprintf(stderr, "udp recv failed: %s\n", strerror(errno));
+		warn("udp recv failed");
 		return;
 	}
 
 	if (dtls_write(ctx, &dsess, buf, r) == -1) {
-		fprintf(stderr, "dtls_write failed\n");
+		warn("dtls_write failed");
 		return;
 	}
 }
@@ -209,7 +209,7 @@ ploop(int ufd, int dfd)
 			ev = fds[i].revents;
 
 			if (ev & POLLERR) {
-				fprintf(stderr, "Received POLLERR on FD %d\n", fd);
+				warnx("Received POLLERR on FD %d\n", fd);
 				continue;
 			} else if (!(ev & POLLIN)) {
 				continue;
