@@ -11,9 +11,9 @@ ifeq "$(findstring clang,$(shell $(CC) --version))" "clang"
 	CFLAGS += -Weverything
 endif
 
-$(OBJECTS): tinydtls/libtinydtls.a
 dunnel: dunnel.o dtls.o
 	$(CC) -o $@ $^ $(LDFLAGS)
+$(OBJECTS): tinydtls/libtinydtls.a
 
 tinydtls/Makefile:
 	cd tinydtls && autoconf
