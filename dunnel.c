@@ -12,10 +12,30 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
+/**
+ * The session used for the DTLS socket.
+ */
+static session_t dsess;
+
+/**
+ * The global DTLS context.
+ */
 static dtls_context_t *ctx;
+
+/**
+ * DTLS callback created in `dtls.c`.
+ */
 extern dtls_handler_t dtlscb;
 
-#define BSIZ (BUFSIZ > DTLS_MAX_BUF) ? DTLS_MAX_BUF : BUFSIZ
+/**
+ * Buffer size used for the send/recv buffers.
+ */
+#if BUFSIZ > DTLS_MAX_BUF
+#define BSIZ DTLS_MAX_BUF
+#else
+#define BSIZ BUFSIZ
+#endif
+
 #define newpollfd(FD) \
 	(struct pollfd){.fd = FD, .events = POLLIN | POLLERR};
 
@@ -107,10 +127,9 @@ static int
 dsock(char *host, char *port, int ufd, struct dctx *dctx)
 {
 	int fd;
-	session_t sess;
 
-	memset(&sess, '\0', sizeof(sess));
-	if ((fd = sock(host, port, &sess.addr.sa, &sess.size)) == -1)
+	memset(&dsess, '\0', sizeof(dsess));
+	if ((fd = sock(host, port, &dsess.addr.sa, &dsess.size)) == -1)
 		return -1;
 
 	dctx->ufd = ufd;
@@ -122,7 +141,7 @@ dsock(char *host, char *port, int ufd, struct dctx *dctx)
 	}
 
 	dtls_set_handler(ctx, &dtlscb);
-	if (dtls_connect(ctx, &sess) < 0) {
+	if (dtls_connect(ctx, &dsess) < 0) {
 		errno = ECONNREFUSED;
 		return -1;
 	}
@@ -140,7 +159,7 @@ hdtls(int fd)
 	memset(&sess, '\0', sizeof(sess));
 	sess.size = sizeof(sess.addr);
 
-	if ((r = recvfrom(fd, buf, BUFSIZ, MSG_DONTWAIT,
+	if ((r = recvfrom(fd, buf, BSIZ, MSG_DONTWAIT,
 			&sess.addr.sa, &sess.size)) == -1) {
 		fprintf(stderr, "dtls recvfrom failed: %s\n", strerror(errno));
 		return;
@@ -154,19 +173,14 @@ static void
 hudp(int fd)
 {
 	ssize_t r;
-	session_t sess;
 	unsigned char buf[BSIZ];
 
-	memset(&sess, '\0', sizeof(sess));
-	sess.size = sizeof(sess.addr);
-
-	if ((r = recvfrom(fd, buf, BUFSIZ, MSG_DONTWAIT,
-			&sess.addr.sa, &sess.size)) == -1) {
-		fprintf(stderr, "udp recvfrom failed: %s\n", strerror(errno));
+	if ((r = recv(fd, buf, BSIZ, MSG_DONTWAIT)) == -1) {
+		fprintf(stderr, "udp recv failed: %s\n", strerror(errno));
 		return;
 	}
 
-	if (dtls_write(ctx, &sess, buf, r) == -1) {
+	if (dtls_write(ctx, &dsess, buf, r) == -1) {
 		fprintf(stderr, "dtls_write failed\n");
 		return;
 	}
