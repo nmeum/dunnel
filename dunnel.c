@@ -19,15 +19,6 @@ session_t dsess;
  */
 static dtls_context_t *ctx;
 
-/**
- * Buffer size used for the send/recv buffers.
- */
-#if BUFSIZ > DTLS_MAX_BUF
-#define BSIZ DTLS_MAX_BUF
-#else
-#define BSIZ BUFSIZ
-#endif
-
 #define newpollfd(FD) \
 	(struct pollfd){.fd = FD, .events = POLLIN | POLLERR};
 
@@ -45,12 +36,12 @@ hdtls(int fd)
 {
 	ssize_t r;
 	session_t sess;
-	unsigned char buf[BSIZ];
+	unsigned char buf[DTLS_MAX_BUF];
 
 	memset(&sess, '\0', sizeof(sess));
 	sess.size = sizeof(sess.addr);
 
-	if ((r = recvfrom(fd, buf, BSIZ, MSG_DONTWAIT,
+	if ((r = recvfrom(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT,
 			&sess.addr.sa, &sess.size)) == -1) {
 		warn("dtls recvfrom failed");
 		return;
@@ -64,9 +55,9 @@ static void
 hudp(int fd)
 {
 	ssize_t r;
-	unsigned char buf[BSIZ];
+	unsigned char buf[DTLS_MAX_BUF];
 
-	if ((r = recv(fd, buf, BSIZ, MSG_DONTWAIT)) == -1) {
+	if ((r = recv(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT)) == -1) {
 		warn("udp recv failed");
 		return;
 	}
