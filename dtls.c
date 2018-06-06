@@ -1,4 +1,5 @@
 #include <dtls.h>
+#include <assert.h>
 #include <dtls_debug.h>
 #include <string.h>
 #include <unistd.h>
@@ -28,6 +29,9 @@ dread(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 {
 	(void)sess;
 	struct dctx *dctx;
+
+	/* usess must have been initialized. */
+	assert(usess.size > 0);
 
 	dctx = dtls_get_app_data(ctx);
 	if (sendto(dctx->ufd, data, len, MSG_DONTWAIT,
