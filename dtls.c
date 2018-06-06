@@ -8,6 +8,11 @@
 
 #include "dat.h"
 
+/**
+ * session_t for the UDP socket client, defined in `dunnel.c`.
+ */
+extern session_t usess;
+
 static int
 dwrite(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 {
@@ -21,11 +26,12 @@ dwrite(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 static int
 dread(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 {
+	(void)sess;
 	struct dctx *dctx;
 
 	dctx = dtls_get_app_data(ctx);
 	if (sendto(dctx->ufd, data, len, MSG_DONTWAIT,
-			&sess->addr.sa, sess->size) == -1)
+			&usess.addr.sa, usess.size) == -1)
 		dtls_alert("Couldn't send %zu bytes to UDP socket\n", len);
 
 	/* I have no idea why this function prototype has a return value

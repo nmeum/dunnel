@@ -15,6 +15,17 @@
 session_t dsess;
 
 /**
+ * The address of the UDP client socket from which we last
+ * received a datagram.
+ *
+ * We use a session_t here to store the address and its
+ * size in the same datatype.
+ *
+ * XXX: We don't support multiple clients on our UDP socket.
+ */
+session_t usess;
+
+/**
  * The global DTLS context.
  */
 static dtls_context_t *ctx;
@@ -57,7 +68,9 @@ hudp(int fd)
 	ssize_t r;
 	unsigned char buf[DTLS_MAX_BUF];
 
-	if ((r = recv(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT)) == -1) {
+	usess.size = sizeof(usess.addr);
+	if ((r = recvfrom(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT,
+			&usess.addr.sa, &usess.size)) == -1) {
 		warn("udp recv failed");
 		return;
 	}
@@ -99,10 +112,10 @@ ploop(struct dctx *dctx)
 				continue;
 			}
 
-			if (fd == dfd) {
-				hdtls(dfd);
-			} else { /* fd == ufd */
+			if (fd == ufd) {
 				hudp(ufd);
+			} else { /* fd == dfd */
+				hdtls(dfd);
 			}
 		}
 	}
