@@ -66,8 +66,8 @@ dpsk(struct dtls_context_t *ctx, const session_t *sess, dtls_credentials_type_t 
 }
 
 dtls_handler_t dtlscb = {
-  .write = dwrite,
-  .read  = dread,
-  .event = NULL,
-  .get_psk_info = dpsk
+	.write = dwrite,
+	.read  = dread,
+	.event = NULL,
+	.get_psk_info = dpsk
 };
