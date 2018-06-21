@@ -35,7 +35,7 @@ dread(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 		/* in client mode csess should contain the address of
 		 * the client from which we last received a datagram. */
 		if (csess.size <= 0) {
-			dtls_debug("Didn't receive a datagram from a client yet, "
+			dtls_alert("Didn't receive a datagram from a client yet, "
 				"discarding received DTLS message\n");
 			return 0;
 		}
