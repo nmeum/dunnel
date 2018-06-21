@@ -33,7 +33,7 @@ str2addr(char *host, char *port, struct sockaddr *dest)
 			memcpy(dest, r->ai_addr, len);
 			goto ret;
 		default:
-			errno = EAFNOSUPPORT;
+			errno = EADDRNOTAVAIL;
 			goto ret;
 		}
 	}
