@@ -24,14 +24,14 @@ session_t dsess;
 session_t csess;
 
 /**
+ * Whether dunnel was started in server mode using -s.
+ */
+int smode;
+
+/**
  * The global DTLS context.
  */
 static dtls_context_t *ctx;
-
-/**
- * Whether dunnel was started in server mode using -s.
- */
-static int smode;
 
 #define newpollfd(FD) \
 	(struct pollfd){.fd = FD, .events = POLLIN | POLLERR};

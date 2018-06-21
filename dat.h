@@ -4,14 +4,19 @@
 extern session_t dsess;
 
 /**
+ * session_t for the socket client, defined in `dunnel.c`.
+ */
+extern session_t csess;
+
+/**
  * DTLS callback declared in `dtls.c`.
  */
 extern dtls_handler_t dtlscb;
 
 /**
- * session_t for the socket client, defined in `dunnel.c`.
+ * Command line argument from `dunnel.c`.
  */
-extern session_t csess;
+extern int smode;
 
 /**
  * Struct use for the application data in the dtls_context_t.

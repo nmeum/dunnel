@@ -23,26 +23,20 @@ static int
 dread(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 {
 	(void)sess;
-	ssize_t ret;
 	struct dctx *dctx;
 
 	dctx = dtls_get_app_data(ctx);
-
-	ret = send(dctx->ufd, data, len, MSG_DONTWAIT);
-	if (ret == -1) {
-		if (errno == EDESTADDRREQ) {
-			/* Running in client mode, send to last client. */
-			if (csess.size <= 0) {
-				dtls_alert("csess wasn't set\n");
-				return 0;
-			}
-
-			if (sendto(dctx->ufd, data, len, MSG_DONTWAIT,
-					&csess.addr.sa, csess.size) == -1)
-				dtls_alert("Couldn't send to UDP socket: %s\n", strerror(errno));
-		} else {
-			dtls_alert("Couldn't send to default address: %s\n", strerror(errno));
-		}
+	if (smode) {
+		/* in server mode connect(3) is called on the UDP socket up
+		 * on creation thus we don't need to specify an address. */
+		if (send(dctx->ufd, data, len, MSG_DONTWAIT) == -1)
+			dtls_alert("send failed in dread: %s\n", strerror(errno));
+	} else {
+		/* in client mode csess contains the address of the
+		 * client from which we last received a datagram. */
+		if (sendto(dctx->ufd, data, len, MSG_DONTWAIT,
+				&csess.addr.sa, csess.size) == -1)
+			dtls_alert("sendto failed in dread: %s\n", strerror(errno));
 	}
 
 	/* I have no idea why this function prototype has a return value
