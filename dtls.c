@@ -32,8 +32,14 @@ dread(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 		if (send(dctx->ufd, data, len, MSG_DONTWAIT) == -1)
 			dtls_alert("send failed in dread: %s\n", strerror(errno));
 	} else {
-		/* in client mode csess contains the address of the
-		 * client from which we last received a datagram. */
+		/* in client mode csess should contain the address of
+		 * the client from which we last received a datagram. */
+		if (csess.size <= 0) {
+			dtls_debug("Didn't receive a datagram from a client yet, "
+				"discarding received DTLS message\n");
+			return 0;
+		}
+
 		if (sendto(dctx->ufd, data, len, MSG_DONTWAIT,
 				&csess.addr.sa, csess.size) == -1)
 			dtls_alert("sendto failed in dread: %s\n", strerror(errno));
