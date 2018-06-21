@@ -4,7 +4,7 @@ HEADERS = fns.h dat.h
 
 CFLAGS ?= -O0 -g
 CFLAGS += -std=c99 -Wpedantic -Wall -Wextra \
-	  -D_XOPEN_SOURCE -DSHA2_USE_INTTYPES_H -I ./tinydtls
+	  -D_POSIX_C_SOURCE=200112L -DSHA2_USE_INTTYPES_H -I ./tinydtls
 
 LDFLAGS += -ltinydtls -L ./tinydtls
 
