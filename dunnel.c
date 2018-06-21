@@ -121,6 +121,7 @@ main(int argc, char **argv)
 	smode = 0;
 	uaddr = uport = NULL;
 
+	dtls_init();
 	while ((opt = getopt(argc, argv, "a:p:v:s")) != -1) {
 		switch (opt) {
 		case 'a':
@@ -151,7 +152,6 @@ main(int argc, char **argv)
 
 	if (argc <= 2 || optind + 1 >= argc)
 		usage(*argv);
-	dtls_init();
 
 	daddr = argv[optind];
 	dport = argv[optind + 1];
