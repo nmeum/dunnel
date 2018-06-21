@@ -46,46 +46,34 @@ usage(char *progname)
 }
 
 static void
-hdtls(int fd)
+handle(int fd, struct dctx *dctx)
 {
 	ssize_t r;
 	session_t sess, *sptr;
 	unsigned char buf[DTLS_MAX_BUF];
 
-	sptr = (smode) ? &csess : &sess;
 	memset(&sess, '\0', sizeof(sess));
+	if (dctx->ufd == fd) {
+		sptr = (smode) ? &sess : &csess;
+	} else { /* dtls socket */
+		sptr = (smode) ? &csess : &sess;
+	}
 
 	sptr->size = sizeof(sptr->addr);
 	if ((r = recvfrom(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT,
 			&sptr->addr.sa, &sptr->size)) == -1) {
-		warn("dtls recvfrom failed");
+		warn("recvfrom failed");
 		return;
 	}
 
-	/* TODO: what are we supposed to do with the return value? */
-	dtls_handle_message(ctx, sptr, buf, r);
-}
-
-static void
-hudp(int fd)
-{
-	ssize_t r;
-	session_t sess, *sptr;
-	unsigned char buf[DTLS_MAX_BUF];
-
-	sptr = (!smode) ? &csess : &sess;
-	memset(&sess, '\0', sizeof(sess));
-
-	sptr->size = sizeof(sptr->addr);
-	if ((r = recvfrom(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT,
-			&sptr->addr.sa, &sptr->size)) == -1) {
-		warn("udp recv failed");
-		return;
-	}
-
-	if (dtls_write(ctx, (smode) ? &csess : &dsess, buf, r) == -1) {
-		warn("dtls_write failed");
-		return;
+	if (dctx->ufd == fd) {
+		sptr = (smode) ? &csess : &dsess;
+		if (dtls_write(ctx, sptr, buf, r) == -1) {
+			warnx("dtls_write failed");
+			return;
+		}
+	} else {
+		dtls_handle_message(ctx, sptr, buf, r);
 	}
 }
 
@@ -113,18 +101,11 @@ ploop(struct dctx *dctx)
 			fd = fds[i].fd;
 			ev = fds[i].revents;
 
-			if (ev & POLLERR) {
+			if (ev & POLLIN) {
+				handle(fd, dctx);
+			} else if (ev & POLLERR) {
 				errx(EXIT_FAILURE, "Received POLLERR on %s socket\n",
 					(fd == ufd) ? "UDP" : "DTLS");
-				continue;
-			} else if (!(ev & POLLIN)) {
-				continue;
-			}
-
-			if (fd == ufd) {
-				hudp(ufd);
-			} else { /* fd == dfd */
-				hdtls(dfd);
 			}
 		}
 	}
