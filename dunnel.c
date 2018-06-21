@@ -15,20 +15,22 @@
 session_t dsess;
 
 /**
- * The address of the UDP client socket from which we last
+ * The address of the client socket from which we last
  * received a datagram.
  *
- * We use a session_t here to store the address and its
- * size in the same datatype.
- *
- * XXX: We don't support multiple clients on our UDP socket.
+ * XXX: We don't support multiple clients.
  */
-session_t usess;
+session_t csess;
 
 /**
  * The global DTLS context.
  */
 static dtls_context_t *ctx;
+
+/**
+ * Whether dunnel was started in server mode using -s.
+ */
+static int smode;
 
 #define newpollfd(FD) \
 	(struct pollfd){.fd = FD, .events = POLLIN | POLLERR};
@@ -37,7 +39,7 @@ static void
 usage(char *progname)
 {
 	fprintf(stderr, "Usage: %s "
-		"-a [ADDR] -p [PORT] "
+		"-s -a [ADDR] -p [PORT] "
 		"DTLS_HOST DTLS_PORT\n", progname);
 	exit(EXIT_FAILURE);
 }
@@ -46,36 +48,41 @@ static void
 hdtls(int fd)
 {
 	ssize_t r;
-	session_t sess;
+	session_t sess, *sptr;
 	unsigned char buf[DTLS_MAX_BUF];
 
+	sptr = (smode) ? &csess : &sess;
 	memset(&sess, '\0', sizeof(sess));
-	sess.size = sizeof(sess.addr);
 
+	sptr->size = sizeof(sptr->addr);
 	if ((r = recvfrom(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT,
-			&sess.addr.sa, &sess.size)) == -1) {
+			&sptr->addr.sa, &sptr->size)) == -1) {
 		warn("dtls recvfrom failed");
 		return;
 	}
 
 	/* TODO: what are we supposed to do with the return value? */
-	dtls_handle_message(ctx, &sess, buf, r);
+	dtls_handle_message(ctx, sptr, buf, r);
 }
 
 static void
 hudp(int fd)
 {
 	ssize_t r;
+	session_t sess, *sptr;
 	unsigned char buf[DTLS_MAX_BUF];
 
-	usess.size = sizeof(usess.addr);
+	sptr = (!smode) ? &csess : &sess;
+	memset(&sess, '\0', sizeof(sess));
+
+	sptr->size = sizeof(sptr->addr);
 	if ((r = recvfrom(fd, buf, DTLS_MAX_BUF, MSG_DONTWAIT,
-			&usess.addr.sa, &usess.size)) == -1) {
+			&sptr->addr.sa, &sptr->size)) == -1) {
 		warn("udp recv failed");
 		return;
 	}
 
-	if (dtls_write(ctx, &dsess, buf, r) == -1) {
+	if (dtls_write(ctx, (smode) ? &csess : &dsess, buf, r) == -1) {
 		warn("dtls_write failed");
 		return;
 	}
@@ -94,8 +101,8 @@ ploop(struct dctx *dctx)
 	dfd = dctx->dfd;
 	ufd = dctx->ufd;
 
-	fds[0] = newpollfd(ufd);
-	fds[1] = newpollfd(dfd);
+	fds[0] = newpollfd(dfd);
+	fds[1] = newpollfd(ufd);
 
 	for (;;) {
 		if (poll(fds, nfds, -1) == -1)
@@ -106,7 +113,7 @@ ploop(struct dctx *dctx)
 			ev = fds[i].revents;
 
 			if (ev & POLLERR) {
-				warnx("Received POLLERR on FD %d\n", fd);
+				errx(EXIT_FAILURE, "Received POLLERR on FD %d\n", fd);
 				continue;
 			} else if (!(ev & POLLIN)) {
 				continue;
@@ -124,11 +131,14 @@ ploop(struct dctx *dctx)
 int
 main(int argc, char **argv)
 {
+	sockop uop, dop;
 	int opt, ufd;
 	char *uaddr, *uport, *daddr, *dport;
 
+	smode = 0;
 	uaddr = uport = NULL;
-	while ((opt = getopt(argc, argv, "a:p:")) != -1) {
+
+	while ((opt = getopt(argc, argv, "a:p:s")) != -1) {
 		switch (opt) {
 		case 'a':
 			uaddr = optarg;
@@ -136,10 +146,21 @@ main(int argc, char **argv)
 		case 'p':
 			uport = optarg;
 			break;
+		case 's': /* act as dtls server, default: act as dtls client */
+			smode = 1;
+			break;
 		default:
 			usage(*argv);
 			break;
 		}
+	}
+
+	if (smode) {
+		uop = SOCK_CONN;
+		dop = SOCK_BIND;
+	} else {
+		uop = SOCK_BIND;
+		dop = SOCK_CONN;
 	}
 
 	if (argc <= 2 || optind + 1 >= argc)
@@ -149,9 +170,9 @@ main(int argc, char **argv)
 	daddr = argv[optind];
 	dport = argv[optind + 1];
 
-	if ((ufd = usock(uaddr, (!uport) ? dport : uport)) == -1)
+	if ((ufd = usock(uaddr, (!uport) ? dport : uport, uop)) == -1)
 		err(EXIT_FAILURE, "usock failed");
-	if (!(ctx = dsock(daddr, dport, ufd)))
+	if (!(ctx = dsock(daddr, dport, ufd, dop)))
 		err(EXIT_FAILURE, "dsock failed");
 
 	ploop(dtls_get_app_data(ctx));

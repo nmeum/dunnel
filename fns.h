@@ -1,2 +1,2 @@
-int usock(char*, char*);
-dtls_context_t* dsock(char*, char*, int);
+int usock(char*, char*, sockop);
+dtls_context_t* dsock(char*, char*, int, sockop);

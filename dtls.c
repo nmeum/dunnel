@@ -1,18 +1,13 @@
 #include <dtls.h>
-#include <assert.h>
 #include <dtls_debug.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
 
 #include "dat.h"
-
-/**
- * session_t for the UDP socket client, defined in `dunnel.c`.
- */
-extern session_t usess;
 
 static int
 dwrite(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
@@ -28,15 +23,27 @@ static int
 dread(struct dtls_context_t *ctx, session_t *sess, uint8 *data, size_t len)
 {
 	(void)sess;
+	ssize_t ret;
 	struct dctx *dctx;
 
-	/* usess must have been initialized. */
-	assert(usess.size > 0);
-
 	dctx = dtls_get_app_data(ctx);
-	if (sendto(dctx->ufd, data, len, MSG_DONTWAIT,
-			&usess.addr.sa, usess.size) == -1)
-		dtls_alert("Couldn't send %zu bytes to UDP socket\n", len);
+
+	ret = send(dctx->ufd, data, len, MSG_DONTWAIT);
+	if (ret == -1) {
+		if (errno == EDESTADDRREQ) {
+			/* Running in client mode, send to last client. */
+			if (csess.size <= 0) {
+				dtls_alert("csess wasn't set\n");
+				return 0;
+			}
+
+			if (sendto(dctx->ufd, data, len, MSG_DONTWAIT,
+					&csess.addr.sa, csess.size) == -1)
+				dtls_alert("Couldn't send to UDP socket: %s\n", strerror(errno));
+		} else {
+			dtls_alert("Couldn't send to default address: %s\n", strerror(errno));
+		}
+	}
 
 	/* I have no idea why this function prototype has a return value
 	 * `tests/dtls-client.c` returns 0 here so lets do that as well. */

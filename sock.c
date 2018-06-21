@@ -66,7 +66,7 @@ sock(char *host, char *port, struct sockaddr *addr, socklen_t *alen)
 }
 
 int
-usock(char *host, char *port)
+usock(char *host, char *port, sockop op)
 {
 	int fd;
 	socklen_t alen;
@@ -74,14 +74,26 @@ usock(char *host, char *port)
 
 	if ((fd = sock(host, port, (struct sockaddr*)&addr, &alen)) == -1)
 		return -1;
-	if ((bind(fd, (struct sockaddr*)&addr, alen)) == -1)
+
+	switch (op) {
+	case SOCK_CONN:
+		if ((connect(fd, (struct sockaddr*)&addr, alen)) == -1)
+			return -1;
+		break;
+	case SOCK_BIND:
+		if ((bind(fd, (struct sockaddr*)&addr, alen)) == -1)
+			return -1;
+		break;
+	default: /* unknown operation */
+		errno = EINVAL;
 		return -1;
+	}
 
 	return fd;
 }
 
 dtls_context_t*
-dsock(char *host, char *port, int ufd)
+dsock(char *host, char *port, int ufd, sockop op)
 {
 	int fd;
 	struct dctx *dctx;
@@ -103,8 +115,19 @@ dsock(char *host, char *port, int ufd)
 	}
 
 	dtls_set_handler(ctx, &dtlscb);
-	if (dtls_connect(ctx, &dsess) < 0) {
-		errno = ECONNREFUSED;
+	switch (op) {
+	case SOCK_CONN:
+		if (dtls_connect(ctx, &dsess) < 0) {
+			errno = ECONNREFUSED;
+			return NULL;
+		}
+		break;
+	case SOCK_BIND:
+		if (bind(dctx->dfd, (struct sockaddr*)&dsess.addr.sa, dsess.size) == -1)
+			return NULL;
+		break;
+	default: /* unknown operation */
+		errno = EINVAL;
 		return NULL;
 	}
 

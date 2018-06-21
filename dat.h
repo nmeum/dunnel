@@ -9,9 +9,22 @@ extern session_t dsess;
 extern dtls_handler_t dtlscb;
 
 /**
+ * session_t for the socket client, defined in `dunnel.c`.
+ */
+extern session_t csess;
+
+/**
  * Struct use for the application data in the dtls_context_t.
  */
 struct dctx {
 	int ufd; /* FD of the UDP socket. */
 	int dfd; /* FD of the DTLS socket. */
 };
+
+/**
+ * Enum used to specify which operation should be performed on the usock.
+ */
+typedef enum {
+	SOCK_CONN,
+	SOCK_BIND,
+} sockop;
