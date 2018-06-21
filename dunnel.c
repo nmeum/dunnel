@@ -114,7 +114,8 @@ ploop(struct dctx *dctx)
 			ev = fds[i].revents;
 
 			if (ev & POLLERR) {
-				errx(EXIT_FAILURE, "Received POLLERR on FD %d\n", fd);
+				errx(EXIT_FAILURE, "Received POLLERR on %s socket\n",
+					(fd == ufd) ? "UDP" : "DTLS");
 				continue;
 			} else if (!(ev & POLLIN)) {
 				continue;
