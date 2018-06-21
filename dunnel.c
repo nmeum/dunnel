@@ -77,7 +77,7 @@ handle(int fd, struct dctx *dctx)
 	}
 }
 
-void
+static void
 ploop(struct dctx *dctx)
 {
 	size_t i;
