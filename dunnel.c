@@ -1,5 +1,6 @@
 #include <err.h>
 #include <dtls.h>
+#include <dtls_debug.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +40,7 @@ static void
 usage(char *progname)
 {
 	fprintf(stderr, "Usage: %s "
-		"-s -a [ADDR] -p [PORT] "
+		"-s -v [LOG LEVEL] -a [ADDR] -p [PORT] "
 		"DTLS_HOST DTLS_PORT\n", progname);
 	exit(EXIT_FAILURE);
 }
@@ -138,13 +139,16 @@ main(int argc, char **argv)
 	smode = 0;
 	uaddr = uport = NULL;
 
-	while ((opt = getopt(argc, argv, "a:p:s")) != -1) {
+	while ((opt = getopt(argc, argv, "a:p:v:s")) != -1) {
 		switch (opt) {
 		case 'a':
 			uaddr = optarg;
 			break;
 		case 'p':
 			uport = optarg;
+			break;
+		case 'v':
+			dtls_set_log_level(atoi(optarg));
 			break;
 		case 's': /* act as dtls server, default: act as dtls client */
 			smode = 1;
