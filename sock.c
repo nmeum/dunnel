@@ -20,6 +20,7 @@ str2addr(char *host, char *port, struct sockaddr *dest)
 	hint.ai_socktype = SOCK_DGRAM;
 
 	if (getaddrinfo(host, port, &hint, &res)) {
+		errno = EAFNOSUPPORT;
 		return 0;
 	}
 
