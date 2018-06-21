@@ -52,7 +52,7 @@ sock(char *host, char *port, struct sockaddr *addr, socklen_t *alen)
 	/* From getaddrinfo(3)
 	 *   The nodename and servname arguments are either null
 	 *   pointers or pointers to null-terminated strings. One or
-	 *   both of these two arguments *shall be supplied by the
+	 *   both of these two arguments shall be supplied by the
 	 *   application as a non-null pointer.
 	 */
 	assert(host != NULL || port != NULL);
