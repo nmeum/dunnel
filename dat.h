@@ -24,6 +24,8 @@ extern int smode;
 struct dctx {
 	int ufd; /* FD of the UDP socket. */
 	int dfd; /* FD of the DTLS socket. */
+
+	unsigned char *id, *key;
 };
 
 /**

@@ -41,6 +41,7 @@ usage(char *progname)
 {
 	fprintf(stderr, "Usage: %s "
 		"-s -v [LOG LEVEL] -a [ADDR] -p [PORT] "
+		"-i [ID FILE] -k [KEY FILE] "
 		"DTLS_HOST DTLS_PORT\n", progname);
 	exit(EXIT_FAILURE);
 }
@@ -114,18 +115,29 @@ ploop(struct dctx *dctx)
 int
 main(int argc, char **argv)
 {
-	sockop uop, dop;
 	int opt, ufd;
+	sockop uop, dop;
+	struct dctx *dctx;
+	unsigned char *key, *id;
 	char *uaddr, *uport, *daddr, *dport;
 
 	smode = 0;
 	uaddr = uport = NULL;
+	key = id = NULL;
 
 	dtls_init();
-	while ((opt = getopt(argc, argv, "a:p:v:s")) != -1) {
+	while ((opt = getopt(argc, argv, "a:i:k:p:v:s")) != -1) {
 		switch (opt) {
 		case 'a':
 			uaddr = optarg;
+			break;
+		case 'i':
+			if (!(id = readfile(optarg)))
+				err(EXIT_FAILURE, "couldn't read identity");
+			break;
+		case 'k':
+			if (!(key = readfile(optarg)))
+				err(EXIT_FAILURE, "couldn't read key");
 			break;
 		case 'p':
 			uport = optarg;
@@ -152,6 +164,8 @@ main(int argc, char **argv)
 
 	if (argc <= 2 || optind + 1 >= argc)
 		usage(*argv);
+	else if (!key || !id)
+		errx(EXIT_FAILURE, "A key and an identity must be provided");
 
 	daddr = argv[optind];
 	dport = argv[optind + 1];
@@ -161,6 +175,13 @@ main(int argc, char **argv)
 	if (!(ctx = dsock(daddr, dport, ufd, dop)))
 		err(EXIT_FAILURE, "dsock failed");
 
-	ploop(dtls_get_app_data(ctx));
+	/**
+	 * TODO: don't extract the `struct dctx` from the tinydtls context.
+	 */
+	dctx = dtls_get_app_data(ctx);
+	dctx->key = key;
+	dctx->id = id;
+
+	ploop(dctx);
 	return EXIT_SUCCESS;
 }

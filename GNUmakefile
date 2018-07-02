@@ -1,4 +1,4 @@
-SOURCES = dunnel.c dtls.c sock.c
+SOURCES = dunnel.c dtls.c sock.c util.c
 OBJECTS = $(SOURCES:.c=.o)
 HEADERS = fns.h dat.h
 
