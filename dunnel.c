@@ -126,7 +126,7 @@ main(int argc, char **argv)
 	key = id = NULL;
 
 	dtls_init();
-	while ((opt = getopt(argc, argv, "a:i:k:p:v:s")) != -1) {
+	while ((opt = getopt(argc, argv, "a:i:k:p:sv:")) != -1) {
 		switch (opt) {
 		case 'a':
 			uaddr = optarg;
@@ -142,11 +142,11 @@ main(int argc, char **argv)
 		case 'p':
 			uport = optarg;
 			break;
-		case 'v':
-			dtls_set_log_level(atoi(optarg));
-			break;
 		case 's': /* act as dtls server, default: act as dtls client */
 			smode = 1;
+			break;
+		case 'v':
+			dtls_set_log_level(atoi(optarg));
 			break;
 		default:
 			usage(*argv);
