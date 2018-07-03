@@ -93,7 +93,8 @@ usock(char *host, char *port, sockop op)
 }
 
 dtls_context_t*
-dsock(char *host, char *port, int ufd, sockop op)
+dsock(char *host, char *port, unsigned char *id,
+	unsigned char *key, int ufd, sockop op)
 {
 	int fd;
 	struct dctx *dctx;
@@ -108,6 +109,8 @@ dsock(char *host, char *port, int ufd, sockop op)
 
 	dctx->ufd = ufd;
 	dctx->dfd = fd;
+	dctx->key = key;
+	dctx->id = id;
 
 	if (!(ctx = dtls_new_context(dctx))) {
 		errno = ENOMEM;

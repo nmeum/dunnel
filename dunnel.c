@@ -117,7 +117,6 @@ main(int argc, char **argv)
 {
 	int opt, ufd;
 	sockop uop, dop;
-	struct dctx *dctx;
 	unsigned char *key, *id;
 	char *uaddr, *uport, *daddr, *dport;
 
@@ -172,16 +171,9 @@ main(int argc, char **argv)
 
 	if ((ufd = usock(uaddr, (!uport) ? dport : uport, uop)) == -1)
 		err(EXIT_FAILURE, "usock failed");
-	if (!(ctx = dsock(daddr, dport, ufd, dop)))
+	if (!(ctx = dsock(daddr, dport, id, key, ufd, dop)))
 		err(EXIT_FAILURE, "dsock failed");
 
-	/**
-	 * TODO: don't extract the `struct dctx` from the tinydtls context.
-	 */
-	dctx = dtls_get_app_data(ctx);
-	dctx->key = key;
-	dctx->id = id;
-
-	ploop(dctx);
+	ploop(dtls_get_app_data(ctx));
 	return EXIT_SUCCESS;
 }
