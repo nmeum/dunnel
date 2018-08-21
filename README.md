@@ -8,10 +8,6 @@ Unmaintained and totally unfinished. For instance, only 1-to-1
 relationships are supported currently. Consider this an experiment which
 still needs a lot of work and care.
 
-# Installation
-
-**TODO**
-
 # Usage example
 
 Generate key/identity files:
