@@ -12,9 +12,27 @@ still needs a lot of work and care.
 
 **TODO**
 
-# Usage
+# Usage example
 
-**TODO**
+Generate key/identity files:
+
+	$ printf Client_identity > identity
+	$ printf secretPSK > key
+
+Client usage example:
+
+	$ cd tinydtls/tests
+	$ ./dtls-server -A ::1 -p 2323 &
+	$ ./dunnel -a ::1 -p 4242 -i identity -k key ::1 2323 &
+	$ busybox nc -u ::1 4242
+
+Server usage example:
+
+	$ busybox nc -u -l -p 4242 ::1 &
+	$ ./dunnel -s -a ::1 -p 4242 -i identity -k key ::1 2342 &
+	$ cd tinydtls/tests
+	$ ./dtls-client -i ../../identity -k ../../key ::1 2342
+
 
 # License
 
